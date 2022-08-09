@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+curcheck=$(stat -t /home/shared/cms/articles)
+
+run_publish () {
+	echo "Detected new articles, running publish script"
+	/home/shared/cms/publish || exit 1
+}
+
+if [[ ! -f /home/shared/cms/.dircheck ]]
+then
+	run_publish
+	echo $curcheck > /home/shared/cms/.dircheck
+	exit 0
+fi	
+
+
+oldcheck=$(cat /home/shared/cms/.dircheck)
+echo $curcheck > /home/shared/cms/.dircheck
+
+if [ "$curcheck" != "$oldcheck" ]
+then
+	run_publish
+fi
+
+

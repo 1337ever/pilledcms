@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>anticartography</title>
+	{{include "/includes/head.html"}}
+	<br><br>
+	<h1 id="articletitle">$title$</h1>
+	<h2 id="articleauthor">$if(author)$$author$ | $endif$<a id="apermalink" href="$permalink$">{{include "/resources/permalink.svg"}}</a></h2>
+</head>
+{{include "/resources/divider.svg"}}
+<body>
+	<article>
+		$body$
+	</article>
+</body>
+</html>

@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+
+echo "Welcome to PILLEDCMS version INFINITY, the world's most robust and reliable content management system." | lolcat
+echo
+
+# config values
+art_template="/home/shared/cms/article.html.ptemp"
+main_template="/home/shared/cms/index.html.ptemp"
+
+# generate article index
+
+# create array of articles
+articles=($(ls -d /home/shared/cms/articles/*))
+
+# randomize articles
+articles=($(shuf -e "${articles[@]}"))
+
+for title in ${articles[@]}; do
+	echo "article found: $(basename ${title%.md})"
+done
+
+# remove previously-generated index and copy template to its place
+rm /home/shared/caddy/articles.html
+cp /home/shared/caddy/articles.html.temp /home/shared/caddy/articles.html
+
+# remove previous articles
+rm /home/shared/caddy/articles/*
+
+# define variables for finding the latest article and its title
+latestamp=$(cat ${articles[0]} | grep "date:" | sed 's/^.*: //')
+latest=$(basename ${articles[0]%.md})
+
+# function to generate index page
+gen_index_page () {
+	for title in ${articles[@]}; do
+		# get title of latest article for main page
+		stamp=$(cat $title | grep "date:" | sed 's/^.*: //')
+		if (( stamp > latestamp )); then
+			latestamp=$stamp
+			latest=$(basename ${title%.md})
+		fi
+		
+		intitle=$(cat $title | grep "title:" | sed 's/^.*: //')
+		friendate=$(date -d @$stamp "+%B %d, %Y")
+		echo "<a href=\"/articles/$(basename ${title%.md})\">$intitle</a> <b>|</b> $friendate<br>" >> /home/shared/caddy/articles.html
+	done
+	echo "</div></body></html>" >> /home/shared/caddy/articles.html
+	echo $latest
+}
+
+echo "Generating article index page..."
+latest="$(gen_index_page)"
+# (gen_index || (echo "Failed to generate index" && exit 1))&& echo "Successfully generated index (probably)"
+
+# use pandoc to generate html from markdown articles
+gen_articles () {
+	for art in ${articles[@]}; do
+		basen="$(basename ${art%.md})"
+		pandoc -s --template $art_template -f markdown -t html \
+			--lua-filter /home/shared/cms/filters/imgcap.lua \
+			--lua-filter /home/shared/cms/filters/footnotes.lua \
+			--lua-filter /home/shared/cms/filters/headlinks.lua \
+			-V permalink="https://anticartography.net/articles/$basen" \
+			$art | sed 's#<hr />#{{include "/resources/divider.svg"}}#g' > /home/shared/caddy/articles/$basen.html
+	done
+}
+
+# generate index.html (the page thats the front page of the website)
+gen_main_page () {
+	pandoc -s --template $main_template -f markdown -t html \
+			--lua-filter /home/shared/cms/filters/imgcap.lua \
+			--lua-filter /home/shared/cms/filters/footnotes.lua \
+			--lua-filter /home/shared/cms/filters/headlinks.lua \
+			-V permalink="https://anticartography.net/articles/$latest" \
+			/home/shared/cms/articles/$latest.md | sed 's#<hr />#{{include "/resources/divider.svg"}}#g' > /home/shared/caddy/index.html
+}
+
+echo "Compiling articles..."
+gen_articles
+echo "Compiling main page..."
+gen_main_page
+
+echo
+echo "Hopefully everything worked because this script doesn't really have error handling!"
+echo "Have a nice day!"
